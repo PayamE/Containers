@@ -6,7 +6,6 @@ OPENMS_CMAKE_FILE="`wget -qO- 'https://raw.githubusercontent.com/OpenMS/OpenMS/m
 IFS=$'\n' read -rd '' -a split_CMAK <<< "$OPENMS_CMAKE_FILE"
 control=0
 
-echo $control
 for i in "${split_CMAK[@]}"; do
      #echo "$i"
         if [[ $i == ")" ]]
@@ -38,3 +37,7 @@ for i in "${split_CMAK[@]}"; do
 			control=1
 	fi
 done
+<<<<<<< HEAD
+=======
+
+>>>>>>> fffcb07a6ef771d0f30e1c0b0a9db8eb849a7f8f
