@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install --yes openms
 ENTRYPOINT [\"$entryPoint\"]"
 
 
-echo $control
 for i in "${split_CMAK[@]}"; do
      #echo "$i"
         if [[ $i == ")" ]]
@@ -48,12 +47,3 @@ for i in "${split_CMAK[@]}"; do
 	fi
 done
 
-DockerData="FROM ubuntu:14.04
-
-MAINTAINER Payam Emami, payam.emami@medsci.uu.se
-
-RUN apt-get update && apt-get install --yes openms
-
-ENTRYPOINT [\"$entryPoint\"] "
-
-echo $DockerData
