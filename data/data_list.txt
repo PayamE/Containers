@@ -1,4 +1,4 @@
-Chloroquine_B3_Rep2.mzML	https://drive.google.com/uc?export=download&id=0B2_vRRzzlOVtWXFCNTFxU2U0d1k
-Daidzein_B4_Rep2.mzML	https://drive.google.com/uc?export=download&id=0B2_vRRzzlOVtbG5Hdm03NElhQ00
-Mebendazole_B3_Rep3.mzML	https://drive.google.com/uc?export=download&id=0B2_vRRzzlOVtS0JqcDd1cEJEaTg
-Quercetin_B1_Rep2.mzML	https://drive.google.com/uc?export=download&id=0B2_vRRzzlOVtZ1JvSFM1SjZfSms
+Chloroquine_B3_Rep2.mzML	https://www.dropbox.com/s/ejj76mi9kb6kx8e/Chloroquine_B3_Rep2.mzML?raw=1
+Daidzein_B4_Rep2.mzML	https://www.dropbox.com/s/dlur7tisze9goc6/Daidzein_B4_Rep2.mzML?raw=1
+Mebendazole_B3_Rep3.mzML	https://www.dropbox.com/s/wcgqd26lovw3vvo/Mebendazole_B3_Rep3.mzML?raw=1
+Quercetin_B1_Rep2.mzML	https://www.dropbox.com/s/t0emfbii7giqslw/Quercetin_B1_Rep2.mzML?raw=1
