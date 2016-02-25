@@ -1,0 +1,237 @@
+import os
+workingDir="OpenMS"
+if not os.path.exists(workingDir):
+    os.makedirs(workingDir)
+os.chdir(workingDir)
+#####################
+import urllib.request
+urllib.request.urlretrieve("https://raw.githubusercontent.com/PayamE/Containers/master/data/data_list.txt","data_list.txt")
+urllib.request.urlretrieve("https://raw.githubusercontent.com/PayamE/Containers/master/data/params.txt","params.txt")
+#####################
+import csv
+import os
+rawDirectory="rawFiles"
+if not os.path.exists(rawDirectory):
+    os.makedirs(rawDirectory)
+paramDirectory="paramFiles"
+if not os.path.exists(paramDirectory):
+    os.makedirs(paramDirectory)
+param_path=[]
+with open('params.txt','r') as f:
+    reader=csv.reader(f,delimiter='\t')
+    for row in reader:
+        urllib.request.urlretrieve(row[1],paramDirectory+"/"+row[0])
+        param_path.append(row)
+        
+
+data_path=[]
+with open('data_list.txt','r') as f:
+    reader=csv.reader(f,delimiter='\t')
+    for row in reader:
+        urllib.request.urlretrieve(row[1],rawDirectory+"/"+row[0])
+        data_path.append(row)
+######################
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning) # suppress warnings
+######################
+control=input()
+######################
+import getpass
+password=getpass.getpass()
+######################
+url_peakPicker="https://admin:"+password+"@"+control+"/chronos/scheduler/iso8601"
+url_featureFinder="https://admin:"+password+"@"+control+"/chronos/scheduler/dependency"
+i=0
+containerNamesfeatureFinder=[]
+featureFinderoutNames=[]
+peakPickerDir="peakPickerDir"
+featureFinderDir="featureFinderDir"
+if not os.path.exists(peakPickerDir):
+    os.makedirs(peakPickerDir)
+if not os.path.exists(featureFinderDir):
+    os.makedirs(featureFinderDir)
+#2030-01-01T12:00:00Z
+for mzFile in data_path:
+    i=i+1
+    peakPickerInputFile=mzFile[0]
+    peakPickerOutputFile=mzFile[0]
+    containerNamePeakPicker="peakpickerhires"+"_"+peakPickerInputFile.replace(".mzML","")
+    json_peakpicker="""
+    { 
+        "schedule" : "R1//PT1H",  
+        "cpus": "0.25",
+        "mem": "100",  
+        "epsilon" : "PT10M",  
+        "name" : "%s",
+        "container": {
+            "type": "DOCKER",
+            "image": "payamemami/peakpickerhires",
+            "volumes": [{
+                "hostPath": "/mnt/container-volumes/jupyter/%s",
+                "containerPath": "/data",
+                "mode": "RW"
+             }]
+        },
+        "command" : "PeakPickerHiRes -in /data/%s/%s -out /data/%s/%s -ini /data/%s",
+        "owner" : "payam.emami@medsci.uu.se"
+    }
+    """ % (containerNamePeakPicker,workingDir,rawDirectory,peakPickerInputFile,peakPickerDir ,peakPickerOutputFile, paramDirectory+"/peakPickerParam.ini")
+    featureFinderoutput=peakPickerOutputFile.replace(".mzML",".featureXML")
+    containerNamefeatureFinder="featurefindermetabo"+"_"+peakPickerOutputFile.replace(".mzML","")
+    containerNamesfeatureFinder.append(containerNamefeatureFinder)
+    featureFinderoutNames.append(featureFinderoutput)
+    json_featurefinder="""
+    { 
+        "parents" : ["%s"],
+        "cpus": "0.25",
+        "mem": "100",  
+        "epsilon" : "PT10M",  
+        "name" : "%s",
+        "container": {
+            "type": "DOCKER",
+            "image": "payamemami/featurefindermetabo",
+            "volumes": [{
+                "hostPath": "/mnt/container-volumes/jupyter/%s",
+                "containerPath": "/data",
+                "mode": "RW"
+             }]
+        },STAGING
+        "command" : "FeatureFinderMetabo -in /data/%s/%s -out /data/%s/%s -ini /data/%s",
+        "owner" : "payam.emami@medsci.uu.se"
+    }
+    """ % (containerNamePeakPicker,containerNamefeatureFinder,workingDir,peakPickerDir,peakPickerOutputFile,featureFinderDir ,featureFinderoutput,paramDirectory+"/featureFinderParam.ini")
+
+    response=requests.post(url_peakPicker, headers = {'content-type' : 'application/json'}, data=json_peakpicker, verify=False)
+    print("HTTP response code peakPicker: " + str(response.status_code))
+    response=requests.post(url_featureFinder, headers = {'content-type' : 'application/json'}, data=json_featurefinder, verify=False)
+    print("HTTP response code featureFinder: " + str(response.status_code))
+######################
+featureLinkerDir="featureLinkerDir"
+if not os.path.exists(featureLinkerDir):
+    os.makedirs(featureLinkerDir)
+url_featureLinker="https://admin:"+password+"@"+control+"/chronos/scheduler/dependency"
+featureLinkerInput=' '.join(["/data/"+featureFinderDir+"/" + fileName for fileName in featureFinderoutNames])
+featureLinkerOutput="featureLinkerResult.consensusXML"
+containerNamefeatureLinker="featureLinker"
+parents="%s"%(containerNamesfeatureFinder)
+json_featureLinker="""
+    { 
+        "parents" : %s,
+        "cpus": "0.25",
+        "mem": "100",  
+        "epsilon" : "PT10M",  
+        "name" : "%s",
+        "container": {
+            "type": "DOCKER",
+            "image": "payamemami/featurelinkerunlabeledqt",
+            "volumes": [{
+                "hostPath": "/mnt/container-volumes/jupyter/%s",
+                "containerPath": "/data",
+                "mode": "RW"
+             }]
+        },
+        "command" : "FeatureLinkerUnlabeledQT -in %s -out /data/%s/%s -ini /data/%s",
+        "owner" : "payam.emami@medsci.uu.se"
+    }
+    """ % (parents.replace("\'","\""),containerNamefeatureLinker,workingDir,featureLinkerInput,featureLinkerDir,featureLinkerOutput,paramDirectory+"/featureLinkerParam.ini")
+response=requests.post(url_featureLinker, headers = {'content-type' : 'application/json'}, data=json_featureLinker, verify=False)
+print("HTTP response code featureFinder: " + str(response.status_code))
+######################
+textExporterDir="textExporterDir"
+if not os.path.exists(textExporterDir):
+    os.makedirs(textExporterDir)
+url_textExporter="https://admin:"+password+"@"+control+"/chronos/scheduler/dependency"
+textExporterInput=featureLinkerDir+"/"+featureLinkerOutput
+textExporterOutput="textExporterOutput.csv"
+containerNameTextExporter="textexporter"
+parents="%s"%(containerNamefeatureLinker)
+json_textExporter="""
+    { 
+        "parents" : ["%s"],
+        "cpus": "0.25",
+        "mem": "100",  
+        "epsilon" : "PT10M",  
+        "name" : "%s",
+        "container": {
+            "type": "DOCKER",
+            "image": "payamemami/textexporter",
+            "volumes": [{
+                "hostPath": "/mnt/container-volumes/jupyter/%s",
+                "containerPath": "/data",
+                "mode": "RW"
+             }]
+        },
+        "command" : "TextExporter -in /data/%s -out /data/%s/%s -ini /data/%s",
+        "owner" : "payam.emami@medsci.uu.se"
+    }
+    """ % (parents,containerNameTextExporter,workingDir,textExporterInput,textExporterDir,textExporterOutput,paramDirectory+"/textExporter.ini")
+response=requests.post(url_textExporter, headers = {'content-type' : 'application/json'}, data=json_textExporter, verify=False)
+print("HTTP response code featureFinder: " + str(response.status_code))
+######################
+convertToDecyderDir="convertToDecyderDir"
+if not os.path.exists(convertToDecyderDir):
+    os.makedirs(convertToDecyderDir)
+url_convertToDecyder="https://admin:"+password+"@"+control+"/chronos/scheduler/dependency"
+convertToDecyderInput=textExporterDir+"/"+textExporterOutput
+convertToDecyderOutput=""
+containerNameconvertToDecyder="converttodecyder"
+textExporterOutputName="textExporterOutput.xls"
+parents="%s"%(containerNameTextExporter)
+json_textExporter="""
+    { 
+        "parents" : ["%s"],
+        "cpus": "0.25",
+        "mem": "100",  
+        "epsilon" : "PT10M",  
+        "name" : "%s",
+        "container": {
+            "type": "DOCKER",
+            "image": "payamemami/converttodecyder",
+            "volumes": [{
+                "hostPath": "/mnt/container-volumes/jupyter/%s",
+                "containerPath": "/data",
+                "mode": "RW"
+             }]
+        },
+        "command" : "Rscript convert_to_decyder.R -in=/data/%s -out=/data/%s -name=%s",
+        "owner" : "payam.emami@medsci.uu.se"
+    }
+    """ % (parents,containerNameconvertToDecyder,workingDir,convertToDecyderInput,convertToDecyderDir,textExporterOutputName)
+response=requests.post(url_textExporter, headers = {'content-type' : 'application/json'}, data=json_textExporter, verify=False)
+print("HTTP response code featureFinder: " + str(response.status_code))
+######################
+plotDir="plotDir"
+if not os.path.exists(plotDir):
+    os.makedirs(plotDir)
+url_plot="https://admin:"+password+"@"+control+"/chronos/scheduler/dependency"
+plotInput=convertToDecyderDir+"/"+textExporterOutputName
+plotOutput="plot.png"
+containerNameplot="plotmsdata"
+parents="%s"%(containerNameconvertToDecyder)
+json_plot="""
+    { 
+        "parents" : ["%s"],
+        "cpus": "0.25",
+        "mem": "100",  
+        "epsilon" : "PT10M",  
+        "name" : "%s",
+        "container": {
+            "type": "DOCKER",
+            "image": "payamemami/plotmsdata",
+            "volumes": [{
+                "hostPath": "/mnt/container-volumes/jupyter/%s",
+                "containerPath": "/data",
+                "mode": "RW"
+             }]
+        },
+        "command" : "Rscript plotMSData.R -in=/data/%s -out=/data/%s/%s -pattern=intensity_ -impute=T -plottype=BOX -width=20 -height=20 -imagetype=PNG -log=T",
+        "owner" : "payam.emami@medsci.uu.se"
+    }
+    """ % (parents,containerNameplot,workingDir,plotInput,plotDir,plotOutput)
+response=requests.post(url_plotDir, headers = {'content-type' : 'application/json'}, data=json_plot, verify=False)
+print("HTTP response code featureFinder: " + str(response.status_code))
+#####################
+from IPython.display import Image
+Image(filename=plotDir+"/"+plotOutput) 
+
