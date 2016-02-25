@@ -7,8 +7,6 @@ RUN git clone https://github.com/OpenMS/OpenMS.git
 RUN git clone  https://github.com/OpenMS/contrib.git 
 RUN mkdir contrib-build 
 RUN cd /contrib-build && \
-#RUN pwd
-#RUN OUTPUT="$(pwd)"
 cmake -DBUILD_TYPE=LIST ../contrib && \
 cmake -DBUILD_TYPE=SEQAN ../contrib && \
 cmake -DBUILD_TYPE=WILDMAGIC ../contrib && \
